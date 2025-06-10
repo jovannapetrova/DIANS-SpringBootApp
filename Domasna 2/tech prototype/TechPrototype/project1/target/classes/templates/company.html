@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Price Trends</title>
+    <!-- Bootstrap CSS -->
+    <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        .chart-container {
+            margin: 20px auto;
+            max-width: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .prediction-message {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .prediction-message.success {
+            color: #28a745; /* Green for success */
+        }
+        .prediction-message.error {
+            color: #dc3545; /* Red for error */
+        }
+
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <!-- Page Title -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h1 class="text-center">Company Price Trends</h1>
+        </div>
+    </div>
+
+    <!-- Company Data -->
+    <div th:if="${companyData != null && !companyData.isEmpty()}">
+        <div class="row" th:each="data : ${companyData}">
+            <div class="col-12 col-md-6 mb-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h4 class="card-title text-center" th:text="${data.companyCode} + ' - Price Trend'">Company Name</h4>
+                        <p class="text-center text-muted">
+                            Last Updated:
+                            <span th:text="${#temporals.format(data.lastUpdated, 'dd-MM-yyyy')}">Unknown Date</span>
+                        </p>
+                        <!-- Chart Canvas -->
+                        <div class="chart-container">
+                            <canvas th:attr="id='chart-' + ${data.id}" width="800" height="400"></canvas>
+                        </div>
+
+                        <!-- Predict Price Button and Result -->
+                        <div class="mt-4 text-center">
+                            <button class="btn btn-primary predict-btn" th:attr="data-company-id=${data.id}">
+                                Predict Next Month Price
+                            </button>
+                            <p class="mt-3 prediction-message" th:attr="id='prediction-' + ${data.id}">
+                                <!-- Prediction result will go here -->
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Data Available -->
+    <div th:if="${companyData == null || companyData.isEmpty()}">
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-warning text-center" role="alert">
+                    No company data available at the moment.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Chart.js and Predict Button -->
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function () {
+        const companyData = /*[[${companyData}]]*/ [];
+        if (!companyData || companyData.length === 0) {
+            console.warn("No company data available for charts.");
+            return;
+        }
+
+        companyData.forEach(function (data) {
+            if (!data.id) {
+                console.warn("Skipping chart due to missing ID.");
+                return;
+            }
+
+            // Render the Chart
+            const ctx = document.getElementById("chart-" + data.id).getContext("2d");
+            const chartData = {
+                labels: data.dates || [], // Fallback to empty array
+                datasets: [
+                    {
+                        label: "Price",
+                        data: data.prices || [], // Fallback to empty array
+                        borderColor: "rgba(75, 192, 192, 1)",
+                        borderWidth: 2,
+                        fill: false
+                    }
+                ]
+            };
+
+            new Chart(ctx, {
+                type: "line",
+                data: chartData,
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: "time",
+                            time: {
+                                unit: "day",
+                                tooltipFormat: "yyyy-MM-dd",
+                                displayFormats: { day: "yyyy-MM-dd" }
+                            }
+                        },
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        });
+
+        // Handle Predict Button Clicks
+        document.querySelectorAll(".predict-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const companyId = button.getAttribute("data-company-id");
+                const predictionElement = document.getElementById("prediction-" + companyId);
+
+                // Make API call to the prediction endpoint
+                fetch('/api/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({ companyId })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Failed to fetch prediction");
+                        }
+                        return response.json();
+                    })
+                    .then(predictedPrice => {
+                        // Update the text element with the predicted price
+                        predictionElement.textContent = `Next Price: $${predictedPrice.toFixed(2)}`;
+                        predictionElement.classList.add("success");
+                        predictionElement.classList.remove("error");
+                    })
+                    .catch(error => {
+                        console.error("Error predicting price:", error);
+                        predictionElement.textContent = "Not enough data for prediction.";
+                        predictionElement.classList.add("error");
+                        predictionElement.classList.remove("success");
+                    });
+            });
+        });
+    });
+    /*]]>*/
+</script>
+
+<!-- Bootstrap JS -->
+<script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+></script>
+</body>
+</html>
