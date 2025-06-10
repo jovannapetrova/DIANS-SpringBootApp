@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Technical Analysis Tool</h1>
+    <form id="upload-form" enctype="multipart/form-data">
+        <label for="file">Upload Historical Data (CSV):</label>
+        <input type="file" id="file" name="file" accept=".csv" required>
+        <br><br>
+        <label for="indicators">Select Indicators:</label>
+        <select id="indicators" name="indicators" multiple>
+            <option value="0">RSI</option>
+            <option value="1">MACD</option>
+            <option value="2">Stochastic</option>
+            <option value="3">CCI</option>
+            <option value="4">MOM</option>
+            <option value="5">SMA</option>
+            <option value="6">EMA</option>
+            <option value="7">WMA</option>
+            <option value="8">HMA</option>
+            <option value="9">VWAP</option>
+        </select>
+        <br><br>
+        <label for="timeframes">Select Timeframes:</label>
+        <select id="timeframes" name="timeframes" multiple>
+            <option value="1">1 Day</option>
+            <option value="7">1 Week</option>
+            <option value="30">1 Month</option>
+        </select>
+        <br><br>
+        <button type="submit">Analyze</button>
+    </form>
+    <div id="results">
+        <h2>Results</h2>
+        <pre id="output"></pre>
+    </div>
+</div>
+
+<script>
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const file = document.getElementById('file').files[0];
+        const indicators = Array.from(document.getElementById('indicators').selectedOptions).map(o => o.value);
+        const timeframes = Array.from(document.getElementById('timeframes').selectedOptions).map(o => o.value);
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('indicators', JSON.stringify(indicators));
+        formData.append('timeframes', JSON.stringify(timeframes));
+
+        const response = await fetch('/calculate-indicators/', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        document.getElementById('output').textContent = JSON.stringify(result, null, 2);
+    });
+</script>
+</body>
+</html>

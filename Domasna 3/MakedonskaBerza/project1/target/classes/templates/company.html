@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Трендови на цени</title>
+    <!-- Bootstrap CSS -->
+    <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #d3d3d3, #6a0dad);
+        }
+        .chart-container {
+            margin: 20px auto;
+            max-width: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .prediction-message {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .prediction-message.success {
+            color: #28a745; /* Green for success */
+        }
+        .prediction-message.error {
+            color: #dc3545; /* Red for error */
+        }
+        .card {
+            border-radius: 15px;
+            background-color: #ffffff;
+        }
+        .btn, .btn-primary {
+            background-color: #6a0dad;
+            border-color: #6a0dad;
+            border-radius: 8px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .btn, .btn-primary:hover {
+            background-color: #8e43b5;
+            transform: scale(1.05);
+        }
+        .btn, .btn-primary:focus {
+            box-shadow: 0 0 10px rgba(106, 13, 173, 0.5);
+        }
+        .card-title {
+            color: #6a0dad;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <!-- Page Title -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h1 class="text-center">Трендови на цени</h1>
+        </div>
+    </div>
+
+    <!-- Company Data -->
+    <div th:if="${companyData != null && !companyData.isEmpty()}">
+        <div class="row" th:each="data : ${companyData}">
+            <div class="col-12 col-md-6 mb-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h4 class="card-title text-center" th:text="${data.companyCode} + ' - Тренд на цена'">Company Name</h4>
+                        <p class="text-center text-muted">
+                            Последно променето:
+                            <span th:text="${#temporals.format(data.lastUpdated, 'dd-MM-yyyy')}">Unknown Date</span>
+                        </p>
+                        <!-- Chart Canvas -->
+                        <div class="chart-container">
+                            <canvas th:attr="id='chart-' + ${data.id}" width="800" height="400"></canvas>
+                        </div>
+
+                        <!-- Predict Price Button and Result -->
+                        <div class="buttons-column">
+                            <div class="mt-4 text-center">
+                                <div class="btn-group">
+                                    <button class="btn btn-primary predict-btn" th:attr="data-company-id=${data.id}">
+                                        Генерирај сигнал
+                                    </button>
+                                    <button class="btn btn-secondary nlp-btn" th:attr="data-company-id=${data.id}">
+                                        NLP анализа
+                                    </button>
+                                </div>
+                                <p class="mt-3 prediction-message" th:attr="id='prediction-' + ${data.id}">
+                                    <!-- Prediction result will go here -->
+                                </p>
+                                <p class="mt-3 nlp-message" th:attr="id='nlp-' + ${data.id}">
+                                    <!-- NLP result will go here -->
+                                </p>
+                                <!-- New "Predict Next Month Price" Section -->
+                                <button class="btn btn-info predict-next-month-btn" th:attr="data-company-id=${data.id}">
+                                    Предвиди цена за следниот месец
+                                </button>
+                                <p class="mt-3 prediction-next-month-message" th:attr="id='next-month-' + ${data.id}">
+                                    <!-- Next month prediction result will go here -->
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Data Available -->
+    <div th:if="${companyData == null || companyData.isEmpty()}">
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-warning text-center" role="alert">
+                    No company data available at the moment.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Chart.js and Predict Button -->
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener('DOMContentLoaded', function () {
+        const companyData = /*[[${companyData}]]*/ [];
+        if (!companyData || companyData.length === 0) {
+            console.warn("No company data available for charts.");
+            return;
+        }
+
+        companyData.forEach(function (data) {
+            if (!data.id) {
+                console.warn("Skipping chart due to missing ID.");
+                return;
+            }
+
+            // Render the Chart
+            const ctx = document.getElementById("chart-" + data.id).getContext("2d");
+            const chartData = {
+                labels: data.dates || [], // Fallback to empty array
+                datasets: [
+                    {
+                        label: "Цена",
+                        data: data.prices || [], // Fallback to empty array
+                        borderColor: "#6a0dad",
+                        borderWidth: 2,
+                        fill: false,
+                        borderDash: [5, 5],
+                        backgroundColor: "rgba(106, 13, 173, 0.2)",
+                    }
+                ]
+            };
+
+            new Chart(ctx, {
+                type: "line",
+                data: chartData,
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: "time",
+                            time: {
+                                unit: "day",
+                                tooltipFormat: "yyyy-MM-dd",
+                                displayFormats: { day: "yyyy-MM-dd" }
+                            }
+                        },
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        });
+
+        // Handle Predict Button Clicks
+        document.querySelectorAll(".predict-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const companyId = button.getAttribute("data-company-id");
+                const predictionElement = document.getElementById("prediction-" + companyId);
+
+                // Make API call to the prediction endpoint
+                fetch('/api/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({ companyId })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Failed to fetch prediction");
+                        }
+                        return response.text();
+                    })
+                    .then(signal => {
+                        // Update the text element with the predicted price
+                        predictionElement.textContent = `Генериран сигнал: ${signal}`;
+                        predictionElement.classList.add("success");
+                        predictionElement.classList.remove("error");
+                    })
+                    .catch(error => {
+                        console.error("Error predicting price:", error);
+                        predictionElement.textContent = "Нема доволно податоци за предвидување.";
+                        predictionElement.classList.add("error");
+                        predictionElement.classList.remove("success");
+                    });
+            });
+        });
+        // Handle NLP Analysis Button Clicks
+        document.querySelectorAll(".nlp-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const companyId = button.getAttribute("data-company-id");
+                const nlpElement = document.getElementById("nlp-" + companyId);
+
+                // Make API call to the NLP analysis endpoint
+                fetch('/api/analyze?companyId=' + companyId , {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Failed to fetch NLP analysis");
+                        }
+                        return response.json();
+                    })
+                    .then(response => {
+                        // Display NLP recommendation
+                        nlpElement.textContent = `Сентимент: ${response.sentimentScore}, Препорака: ${response.recommendation}`;
+                        nlpElement.classList.add("success");
+                        nlpElement.classList.remove("error");
+                    })
+                    .catch(error => {
+                        console.error("Error analyzing sentiment:", error);
+                        nlpElement.textContent = "Unable to fetch sentiment analysis.";
+                        nlpElement.classList.add("error");
+                        nlpElement.classList.remove("success");
+                    });
+            });
+        });
+        //Handle Predict Next Month Price Button Clicks
+        document.querySelectorAll(".predict-next-month-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const companyId = button.getAttribute("data-company-id");
+                const predictionElement = document.getElementById("next-month-" + companyId);
+
+                // Make API call to the prediction endpoint
+                fetch('/api/predict-next-month-price?companyId=' + companyId, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error("Failed to fetch prediction");
+                        }
+                        return response.json();
+                    })
+                    .then(response => {
+                        // Update the text element with the predicted price
+                        predictionElement.textContent = `Предвидена цена: ${response} ден;`
+                        predictionElement.classList.add("success");
+                        predictionElement.classList.remove("error");
+                    })
+                    .catch(error => {
+                        console.error("Error predicting price:", error);
+                        predictionElement.textContent = "Нема доволно податоци за предвидување.";
+                        predictionElement.classList.add("error");
+                        predictionElement.classList.remove("success");
+                    });
+            });
+        });
+    });
+
+    /*]]>*/
+</script>
+
+<!-- Bootstrap JS -->
+<script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js">
+</script>
+
+</body>
+</html>
